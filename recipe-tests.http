@@ -1,0 +1,13 @@
+
+### Create a recipe
+POST http://localhost:8080/api/recipes
+Content-Type: application/json
+
+{
+  "name": "Vegetable Sandwich",
+  "description": "A quick and healthy vegetable sandwich.",
+  "ingredients": "4 bread slices, 1 tomato, 1 cucumber, 2 tablespoons butter, salt to taste",
+  "instructions": "1. Slice the vegetables. 2. Spread butter on the bread. 3. Add vegetables and salt. 4. Close the sandwich and serve.",
+  "prepTimeMinutes": 15,
+  "servings": 2
+}

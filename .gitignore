@@ -2,3 +2,4 @@
 *.iml
 target/
 .env
+src/main/resources/application.properties
