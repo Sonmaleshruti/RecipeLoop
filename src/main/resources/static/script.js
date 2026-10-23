@@ -1,0 +1,560 @@
+
+const API_URL = "/api/recipes";
+
+const recipeGrid = document.getElementById("recipe-grid");
+const recipeCount = document.getElementById("recipe-count");
+const statusMessage = document.getElementById("status-message");
+const emptyState = document.getElementById("empty-state");
+const emptyTitle = document.getElementById("empty-title");
+const emptyDescription = document.getElementById("empty-description");
+const searchInput = document.getElementById("search-input");
+const recipeForm = document.getElementById("recipe-form");
+const recipeIdInput = document.getElementById("recipe-id");
+const submitButton = document.getElementById("submit-button");
+const cancelEditButton = document.getElementById("cancel-edit");
+const formFeedback = document.getElementById("form-feedback");
+
+let recipes = [];
+let searchTerm = "";
+
+let selectedRecipeId = null;
+
+const detailOverlay = document.createElement("div");
+detailOverlay.id = "recipe-detail-overlay";
+detailOverlay.className = "recipe-detail-overlay";
+detailOverlay.hidden = true;
+detailOverlay.setAttribute("role", "dialog");
+detailOverlay.setAttribute("aria-modal", "true");
+detailOverlay.setAttribute("aria-labelledby", "recipe-detail-title");
+
+detailOverlay.innerHTML = `
+    <article class="recipe-detail-modal">
+        <header class="recipe-detail-header">
+            <button type="button" class="recipe-detail-close"
+                id="recipe-detail-close" aria-label="Close recipe details">×</button>
+            <div class="recipe-detail-emoji" id="detail-emoji" aria-hidden="true">🍲</div>
+            <h2 class="recipe-detail-title" id="recipe-detail-title"></h2>
+            <p class="recipe-detail-description" id="detail-description"></p>
+            <div class="recipe-detail-meta" id="detail-meta"></div>
+        </header>
+        <div class="recipe-detail-body">
+            <section class="recipe-detail-section">
+                <h3>Ingredients</h3>
+                <ul class="recipe-detail-ingredients" id="detail-ingredients"></ul>
+            </section>
+            <section class="recipe-detail-section">
+                <h3>Instructions</h3>
+                <div class="recipe-detail-instructions" id="detail-instructions"></div>
+            </section>
+        </div>
+        <div class="recipe-detail-actions">
+            <button type="button" class="button button-secondary"
+                id="detail-edit-button">Edit Recipe</button>
+            <button type="button" class="button button-danger"
+                id="detail-delete-button">Delete Recipe</button>
+        </div>
+    </article>
+`;
+
+document.body.appendChild(detailOverlay);
+
+const foodEmojis = ["🥗", "🍝", "🥑", "🍲", "🥞", "🍜", "🥙", "🍛"];
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+    })[character]);
+}
+
+function showStatus(message, isError = false) {
+    statusMessage.textContent = message;
+    statusMessage.classList.toggle("error", isError);
+    statusMessage.hidden = !message;
+}
+
+function showFormFeedback(message, isError = false) {
+    formFeedback.textContent = message;
+    formFeedback.classList.toggle("error", isError);
+    formFeedback.hidden = !message;
+}
+
+async function readError(response) {
+    try {
+        const data = await response.json();
+
+        if (data.message) {
+            return data.message;
+        }
+
+        if (data.errors && Array.isArray(data.errors)) {
+            return data.errors.join(", ");
+        }
+
+        if (data.fieldErrors && typeof data.fieldErrors === "object") {
+            return Object.values(data.fieldErrors).join(", ");
+        }
+
+        return "The request could not be completed. Check the entered details.";
+    } catch {
+        return `Request failed with status ${response.status}.`;
+    }
+}
+
+function getFilteredRecipes() {
+    if (!searchTerm) {
+        return recipes;
+    }
+
+    return recipes.filter(recipe => {
+        const searchableText = [
+            recipe.name,
+            recipe.description,
+            recipe.ingredients,
+            recipe.instructions
+        ].join(" ").toLowerCase();
+
+        return searchableText.includes(searchTerm);
+    });
+}
+
+function renderRecipes() {
+    const filteredRecipes = getFilteredRecipes();
+
+    recipeGrid.innerHTML = "";
+    recipeCount.textContent =
+        `${filteredRecipes.length} ${filteredRecipes.length === 1 ? "recipe" : "recipes"}`;
+
+    if (filteredRecipes.length === 0) {
+        emptyState.hidden = false;
+
+        if (recipes.length === 0) {
+            emptyTitle.textContent = "Your recipe collection starts here";
+            emptyDescription.textContent =
+                "Add your first recipe using the form to build your personal collection.";
+        } else {
+            emptyTitle.textContent = "No matching recipes found";
+            emptyDescription.textContent =
+                "Try another search term or clear the search field.";
+        }
+
+        return;
+    }
+
+    emptyState.hidden = true;
+
+    filteredRecipes.forEach((recipe, index) => {
+        const card = document.createElement("article");
+        card.className = "recipe-card";
+
+        const emoji = foodEmojis[index % foodEmojis.length];
+        const ingredients = String(recipe.ingredients ?? "")
+            .split(/[\n,]+/)
+            .map(item => item.trim())
+            .filter(Boolean);
+
+        const ingredientPreview = ingredients.slice(0, 4)
+            .map(ingredient => `<li>${escapeHtml(ingredient)}</li>`)
+            .join("");
+
+        const remainingIngredients = ingredients.length - 4;
+        const extraIngredients = remainingIngredients > 0
+            ? `<li class="more-ingredients">+${remainingIngredients} more</li>`
+            : "";
+
+        card.innerHTML = `
+            <div class="recipe-card-visual">
+                <span class="recipe-emoji" aria-hidden="true">${emoji}</span>
+                <span class="recipe-time">${escapeHtml(recipe.prepTimeMinutes)} min</span>
+            </div>
+            <div class="recipe-card-content">
+                <h3>${escapeHtml(recipe.name)}</h3>
+                <p class="recipe-description">${escapeHtml(recipe.description)}</p>
+                <div class="recipe-meta">
+                    <span>⏱ ${escapeHtml(recipe.prepTimeMinutes)} min</span>
+                    <span>🍽 ${escapeHtml(recipe.servings)} servings</span>
+                </div>
+                <div class="recipe-ingredients">
+                    <h4>Ingredients</h4>
+                    <ul>${ingredientPreview}${extraIngredients}</ul>
+                </div>
+                <details class="recipe-instructions">
+                    <summary>View instructions</summary>
+                    <p>${escapeHtml(recipe.instructions).replace(/\n/g, "<br>")}</p>
+                </details>
+                <div class="recipe-actions">
+                    <button type="button" class="button button-secondary"
+                        data-action="edit" data-id="${escapeHtml(recipe.id)}">Edit</button>
+                    <button type="button" class="button button-danger"
+                        data-action="delete" data-id="${escapeHtml(recipe.id)}">Delete</button>
+                </div>
+            </div>
+        `;
+
+        recipeGrid.appendChild(card);
+    });
+}
+
+async function loadRecipes() {
+    showStatus("Loading recipes...");
+
+    try {
+        const response = await fetch(API_URL);
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        const data = await response.json();
+        recipes = Array.isArray(data) ? data : [];
+
+        renderRecipes();
+        showStatus("");
+    } catch (error) {
+        showStatus(
+            error instanceof TypeError
+                ? "Could not connect to the backend. Ensure RecipeLoop is running."
+                : error.message,
+            true
+        );
+    }
+}
+
+function resetForm() {
+    recipeForm.reset();
+    recipeIdInput.value = "";
+    submitButton.textContent = "Add Recipe";
+    cancelEditButton.hidden = true;
+    showFormFeedback("");
+}
+
+function startEditing(recipe) {
+    recipeIdInput.value = recipe.id;
+    document.getElementById("name").value = recipe.name ?? "";
+    document.getElementById("description").value = recipe.description ?? "";
+    document.getElementById("prepTimeMinutes").value = recipe.prepTimeMinutes ?? "";
+    document.getElementById("servings").value = recipe.servings ?? "";
+    document.getElementById("ingredients").value = recipe.ingredients ?? "";
+    document.getElementById("instructions").value = recipe.instructions ?? "";
+
+    submitButton.textContent = "Save Changes";
+    cancelEditButton.hidden = false;
+    showFormFeedback("");
+
+    recipeForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("name").focus();
+}
+
+
+function openRecipeDetails(recipe) {
+    selectedRecipeId = String(recipe.id);
+
+    const recipeIndex = recipes.findIndex(
+        item => String(item.id) === selectedRecipeId
+    );
+
+    document.getElementById("detail-emoji").textContent =
+        foodEmojis[Math.max(0, recipeIndex) % foodEmojis.length];
+
+    document.getElementById("recipe-detail-title").textContent =
+        recipe.name ?? "";
+
+    document.getElementById("detail-description").textContent =
+        recipe.description ?? "";
+
+    document.getElementById("detail-meta").innerHTML = `
+        <span>⏱ ${escapeHtml(recipe.prepTimeMinutes)} minutes</span>
+        <span>🍽 ${escapeHtml(recipe.servings)} servings</span>
+    `;
+
+    const ingredientsList = document.getElementById("detail-ingredients");
+    ingredientsList.replaceChildren();
+
+    String(recipe.ingredients ?? "")
+        .split(/\r?\n|,/)
+        .map(item => item.trim())
+        .filter(Boolean)
+        .forEach(ingredient => {
+            const listItem = document.createElement("li");
+            listItem.textContent = ingredient;
+            ingredientsList.appendChild(listItem);
+        });
+
+    if (!ingredientsList.children.length) {
+        const item = document.createElement("li");
+        item.textContent = "No ingredients listed.";
+        ingredientsList.appendChild(item);
+    }
+
+    document.getElementById("detail-instructions").textContent =
+        recipe.instructions ?? "No instructions provided.";
+
+    detailOverlay.hidden = false;
+    document.body.classList.add("recipe-detail-open");
+    document.getElementById("recipe-detail-close").focus();
+}
+
+function closeRecipeDetails() {
+    detailOverlay.hidden = true;
+    document.body.classList.remove("recipe-detail-open");
+    selectedRecipeId = null;
+}
+
+
+recipeForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    showFormFeedback("");
+
+    const recipeId = recipeIdInput.value;
+
+    const recipeData = {
+        name: document.getElementById("name").value.trim(),
+        description: document.getElementById("description").value.trim(),
+        prepTimeMinutes: Number(document.getElementById("prepTimeMinutes").value),
+        servings: Number(document.getElementById("servings").value),
+        ingredients: document.getElementById("ingredients").value.trim(),
+        instructions: document.getElementById("instructions").value.trim()
+    };
+
+    if (
+        !recipeData.name ||
+        !recipeData.description ||
+        !recipeData.ingredients ||
+        !recipeData.instructions ||
+        !Number.isInteger(recipeData.prepTimeMinutes) ||
+        recipeData.prepTimeMinutes < 1 ||
+        !Number.isInteger(recipeData.servings) ||
+        recipeData.servings < 1
+    ) {
+        showFormFeedback("Complete all fields with valid values before submitting.", true);
+        return;
+    }
+
+    const isEditing = Boolean(recipeId);
+    const url = isEditing
+        ? `${API_URL}/${encodeURIComponent(recipeId)}`
+        : API_URL;
+
+    submitButton.disabled = true;
+    submitButton.textContent = isEditing ? "Saving..." : "Adding...";
+
+    try {
+        const response = await fetch(url, {
+            method: isEditing ? "PUT" : "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(recipeData)
+        });
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        resetForm();
+        await loadRecipes();
+
+        showFormFeedback(
+            isEditing ? "Recipe updated successfully." : "Recipe added successfully."
+        );
+
+        document.getElementById("recipes").scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+    } catch (error) {
+        showFormFeedback(
+            error instanceof TypeError
+                ? "Could not connect to the backend. Ensure RecipeLoop is running."
+                : error.message,
+            true
+        );
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = recipeIdInput.value ? "Save Changes" : "Add Recipe";
+    }
+});
+
+recipeGrid.addEventListener("click", async event => {
+    const button = event.target.closest("button[data-action]");
+
+    if (!button) {
+        return;
+    }
+
+    const recipe = recipes.find(
+        item => String(item.id) === button.dataset.id
+    );
+
+    if (!recipe) {
+        showStatus("Recipe not found. Refresh the list and try again.", true);
+        return;
+    }
+
+    if (button.dataset.action === "edit") {
+        startEditing(recipe);
+        return;
+    }
+
+    if (button.dataset.action === "delete") {
+        const confirmed = window.confirm(
+            `Delete "${recipe.name}"? This action cannot be undone.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        button.disabled = true;
+
+        try {
+            const response = await fetch(
+                `${API_URL}/${encodeURIComponent(recipe.id)}`,
+                { method: "DELETE" }
+            );
+
+            if (!response.ok) {
+                throw new Error(await readError(response));
+            }
+
+            if (String(recipeIdInput.value) === String(recipe.id)) {
+                resetForm();
+            }
+
+            await loadRecipes();
+            showStatus(`"${recipe.name}" was deleted successfully.`);
+        } catch (error) {
+            showStatus(
+                error instanceof TypeError
+                    ? "Could not connect to the backend. Ensure RecipeLoop is running."
+                    : error.message,
+                true
+            );
+            button.disabled = false;
+        }
+    }
+});
+
+
+
+searchInput.addEventListener("input", event => {
+    searchTerm = event.target.value.trim().toLowerCase();
+    renderRecipes();
+});
+
+document.getElementById("show-all").addEventListener("click", () => {
+    searchInput.value = "";
+    searchTerm = "";
+    renderRecipes();
+});
+
+document.getElementById("refresh-recipes").addEventListener("click", loadRecipes);
+
+cancelEditButton.addEventListener("click", resetForm);
+
+loadRecipes();
+
+document.getElementById("recipe-detail-close").addEventListener("click", () => {
+    closeRecipeDetails();
+});
+
+detailOverlay.addEventListener("click", event => {
+    if (event.target === detailOverlay) {
+        closeRecipeDetails();
+    }
+});
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !detailOverlay.hidden) {
+        closeRecipeDetails();
+    }
+});
+
+document.getElementById("detail-edit-button").addEventListener("click", () => {
+    const recipe = recipes.find(
+        item => String(item.id) === selectedRecipeId
+    );
+
+    if (recipe) {
+        closeRecipeDetails();
+        startEditing(recipe);
+    }
+});
+
+document.getElementById("detail-delete-button").addEventListener("click", async () => {
+    const recipe = recipes.find(
+        item => String(item.id) === selectedRecipeId
+    );
+
+    if (!recipe) {
+        closeRecipeDetails();
+        return;
+    }
+
+    const confirmed = window.confirm(
+        `Delete "${recipe.name}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    const deleteButton = document.getElementById("detail-delete-button");
+    deleteButton.disabled = true;
+
+    try {
+        const response = await fetch(
+            `${API_URL}/${encodeURIComponent(recipe.id)}`,
+            { method: "DELETE" }
+        );
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        closeRecipeDetails();
+        await loadRecipes();
+        showStatus(`"${recipe.name}" was deleted successfully.`);
+    } catch (error) {
+        showStatus(
+            error instanceof TypeError
+                ? "Could not connect to the backend. Ensure RecipeLoop is running."
+                : error.message,
+            true
+        );
+    } finally {
+        deleteButton.disabled = false;
+    }
+});
+
+recipeGrid.addEventListener("click", event => {
+    if (event.target.closest("button, a, summary, input, textarea, select, label")) {
+        return;
+    }
+
+    const card = event.target.closest(".recipe-card");
+
+    if (!card) {
+        return;
+    }
+
+    const cardButtons = card.querySelectorAll("button[data-action]");
+    const editButton = Array.from(cardButtons).find(
+        button => button.dataset.action === "edit"
+    );
+
+    if (!editButton) {
+        return;
+    }
+
+    const recipe = recipes.find(
+        item => String(item.id) === editButton.dataset.id
+    );
+
+    if (recipe) {
+        openRecipeDetails(recipe);
+    }
+});

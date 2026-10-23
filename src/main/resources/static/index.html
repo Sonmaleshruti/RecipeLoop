@@ -1,0 +1,229 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f8f7f2">
+    <title>RecipeLoop | Discover, Cook, Share</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/script.js" defer></script>
+</head>
+<body>
+<header class="site-header">
+    <a class="brand" href="/" aria-label="RecipeLoop home">
+        <span class="brand-icon">R</span>
+        <span>RecipeLoop</span>
+    </a>
+
+    <nav class="main-nav" aria-label="Main navigation">
+        <a class="nav-link active" href="#home">Home</a>
+        <a class="nav-link" href="#recipes">Recipes</a>
+        <a class="nav-link" href="#add-recipe">Share a recipe</a>
+    </nav>
+
+    <a class="header-button" href="#add-recipe">+ Add Recipe</a>
+</header>
+
+<main>
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <span class="eyebrow">YOUR NEXT MEAL STARTS HERE</span>
+            <h1>Good food.<br><span>Great moments.</span></h1>
+            <p>
+                Discover recipes, share your favourites, and make
+                everyday cooking simpler with RecipeLoop.
+            </p>
+            <div class="hero-actions">
+                <a class="primary-button" href="#recipes">Explore recipes <span>→</span></a>
+                <a class="secondary-button" href="#add-recipe">Share your recipe</a>
+            </div>
+            <div class="hero-note">
+                <span class="note-dot"></span>
+                A little inspiration for every meal
+            </div>
+        </div>
+
+        <div class="hero-art" aria-label="Cooking inspiration">
+            <div class="art-circle"></div>
+            <div class="art-card art-card-top">
+                <span>✦</span> Made with love
+            </div>
+            <div class="food-illustration" aria-hidden="true">
+                <span class="food-leaf leaf-one"></span>
+                <span class="food-leaf leaf-two"></span>
+                <span class="food-tomato tomato-one"></span>
+                <span class="food-tomato tomato-two"></span>
+                <span class="food-pasta">〰</span>
+                <span class="food-bowl"></span>
+            </div>
+            <div class="art-card art-card-bottom">
+                <span class="sparkle">✳</span>
+                <div>
+                    <strong>Your kitchen, your creativity</strong>
+                    <small>Find your next favourite</small>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="recipe-section" id="recipes">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">FROM OUR KITCHEN TO YOURS</span>
+                <h2>Explore recipes</h2>
+                <p>Find something delicious to make today.</p>
+            </div>
+            <span class="recipe-count" id="recipe-count">0 recipes</span>
+        </div>
+
+        <div class="recipe-toolbar">
+            <label class="search-box">
+                <span aria-hidden="true">⌕</span>
+                <input
+                        type="search"
+                        id="search-input"
+                        placeholder="Search recipes..."
+                        aria-label="Search recipes"
+                >
+            </label>
+
+            <button class="filter-button active" type="button" id="show-all">
+                All recipes
+            </button>
+            <button class="filter-button" type="button" id="refresh-recipes">
+                ↻ Refresh
+            </button>
+        </div>
+
+        <div class="status-message" id="status-message" role="status">
+            Loading your recipes...
+        </div>
+
+        <div class="recipe-grid" id="recipe-grid"></div>
+
+        <div class="empty-state" id="empty-state" hidden>
+            <div class="empty-icon">♨</div>
+            <h3 id="empty-title">Your recipe collection starts here</h3>
+            <p id="empty-description">
+                Add your first recipe and it will appear here.
+            </p>
+            <a class="primary-button" href="#add-recipe">Add a recipe <span>→</span></a>
+        </div>
+    </section>
+
+    <section class="add-section" id="add-recipe">
+        <div class="add-intro">
+            <span class="eyebrow">SHARE SOMETHING DELICIOUS</span>
+            <h2>Every recipe has a story.</h2>
+            <p>
+                Add a favourite from your kitchen and make it part
+                of the RecipeLoop collection.
+            </p>
+            <div class="add-decoration" aria-hidden="true">✳</div>
+        </div>
+
+        <form id="recipe-form" class="recipe-form">
+            <div class="form-heading">
+                <h3 id="form-title">Add a new recipe</h3>
+                <p>Fields marked with * are required.</p>
+            </div>
+
+            <input type="hidden" id="recipe-id">
+
+            <div class="form-group">
+                <label for="name">Recipe name *</label>
+                <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        maxlength="150"
+                        placeholder="e.g. Creamy tomato pasta"
+                        required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="description">Short description *</label>
+                <textarea
+                        id="description"
+                        name="description"
+                        rows="2"
+                        placeholder="What makes this recipe special?"
+                        required
+                ></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="prepTimeMinutes">Prep time (minutes) *</label>
+                    <input
+                            type="number"
+                            id="prepTimeMinutes"
+                            name="prepTimeMinutes"
+                            min="1"
+                            step="1"
+                            placeholder="20"
+                            required
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="servings">Servings *</label>
+                    <input
+                            type="number"
+                            id="servings"
+                            name="servings"
+                            min="1"
+                            step="1"
+                            placeholder="2"
+                            required
+                    >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="ingredients">Ingredients *</label>
+                <textarea
+                        id="ingredients"
+                        name="ingredients"
+                        rows="3"
+                        placeholder="List ingredients and quantities..."
+                        required
+                ></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="instructions">Cooking instructions *</label>
+                <textarea
+                        id="instructions"
+                        name="instructions"
+                        rows="4"
+                        placeholder="Explain the steps in order..."
+                        required
+                ></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="primary-button" id="submit-button">
+                    Save recipe <span>→</span>
+                </button>
+                <button type="button" class="cancel-button" id="cancel-edit" hidden>
+                    Cancel edit
+                </button>
+            </div>
+
+            <p class="form-feedback" id="form-feedback" role="status"></p>
+        </form>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <a class="brand footer-brand" href="/">
+        <span class="brand-icon">R</span>
+        <span>RecipeLoop</span>
+    </a>
+    <p>Made for people who love good food.</p>
+    <span>© 2026 RecipeLoop</span>
+</footer>
+</body>
+</html>
