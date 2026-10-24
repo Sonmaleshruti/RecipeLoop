@@ -19,6 +19,7 @@
     <nav class="main-nav" aria-label="Main navigation">
         <a class="nav-link active" href="#home">Home</a>
         <a class="nav-link" href="#recipes">Recipes</a>
+        <a class="nav-link" href="#meal-planner">Meal Planner</a>
         <a class="nav-link" href="#add-recipe">Share a recipe</a>
     </nav>
 
@@ -215,6 +216,79 @@
             <p class="form-feedback" id="form-feedback" role="status"></p>
         </form>
     </section>
+
+
+    <section class="meal-planner-section" id="meal-planner">
+        <div class="meal-planner-container">
+            <div class="section-heading">
+                <div>
+                    <p class="section-eyebrow">PLAN AHEAD</p>
+                    <h2>Weekly Meal Planner</h2>
+                    <p>Organize your recipes across the week.</p>
+                </div>
+            </div>
+
+            <div class="meal-week-toolbar">
+                <button type="button" id="previous-week" class="meal-week-button">
+                    &larr; Previous
+                </button>
+                <h3 id="meal-week-label">This week</h3>
+                <button type="button" id="next-week" class="meal-week-button">
+                    Next &rarr;
+                </button>
+                <button type="button" id="current-week" class="meal-week-button">
+                    Current week
+                </button>
+            </div>
+
+            <div id="meal-planner-status" class="meal-planner-status"
+                 role="status" aria-live="polite"></div>
+
+            <div id="meal-calendar" class="meal-calendar"></div>
+
+            <div class="meal-plan-form-panel" id="meal-plan-form-panel">
+                <h3 id="meal-plan-form-title">Add a meal</h3>
+
+                <form id="meal-plan-form">
+                    <div class="meal-form-grid">
+                        <div class="form-group">
+                            <label for="meal-plan-date">Date</label>
+                            <input type="date" id="meal-plan-date" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="meal-plan-type">Meal type</label>
+                            <select id="meal-plan-type" required>
+                                <option value="BREAKFAST">Breakfast</option>
+                                <option value="LUNCH">Lunch</option>
+                                <option value="DINNER">Dinner</option>
+                                <option value="SNACK">Snack</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="meal-plan-recipe">Recipe</label>
+                            <select id="meal-plan-recipe" required>
+                                <option value="">Loading recipes...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="meal-form-actions">
+                        <button type="submit" id="save-meal-plan"
+                                class="meal-primary-button">
+                            Add to plan
+                        </button>
+                        <button type="button" id="cancel-meal-edit"
+                                class="meal-secondary-button" hidden>
+                            Cancel edit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
 </main>
 
 <footer class="site-footer">

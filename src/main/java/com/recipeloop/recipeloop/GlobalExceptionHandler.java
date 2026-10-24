@@ -28,6 +28,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
+    @ExceptionHandler(MealPlanNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleMealPlanNotFound(
+            MealPlanNotFoundException exception) {
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", 404);
+        body.put("error", "Not Found");
+        body.put("message", exception.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationErrors(
             MethodArgumentNotValidException exception) {
@@ -57,7 +69,8 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("status", 400);
         body.put("error", "Bad Request");
-        body.put("message", "Request body is missing or contains invalid JSON or data types.");
+        body.put("message",
+                "Request body is missing or contains invalid JSON or data types.");
 
         return ResponseEntity.badRequest().body(body);
     }
@@ -69,7 +82,20 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("status", 400);
         body.put("error", "Bad Request");
-        body.put("message", "Invalid value for parameter: " + exception.getName());
+        body.put("message",
+                "Invalid value for parameter: " + exception.getName());
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(
+            IllegalArgumentException exception) {
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", 400);
+        body.put("error", "Bad Request");
+        body.put("message", exception.getMessage());
 
         return ResponseEntity.badRequest().body(body);
     }

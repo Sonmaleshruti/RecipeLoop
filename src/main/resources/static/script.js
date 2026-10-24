@@ -212,6 +212,7 @@ async function loadRecipes() {
         recipes = Array.isArray(data) ? data : [];
 
         renderRecipes();
+        populateMealPlanRecipeOptions();
         showStatus("");
     } catch (error) {
         showStatus(
@@ -558,3 +559,371 @@ recipeGrid.addEventListener("click", event => {
         openRecipeDetails(recipe);
     }
 });
+
+
+const MEAL_PLAN_API_URL = "/api/meal-plans";
+
+const mealCalendar = document.getElementById("meal-calendar");
+const mealPlannerStatus = document.getElementById("meal-planner-status");
+const mealWeekLabel = document.getElementById("meal-week-label");
+const mealPlanForm = document.getElementById("meal-plan-form");
+const mealPlanDate = document.getElementById("meal-plan-date");
+const mealPlanType = document.getElementById("meal-plan-type");
+const mealPlanRecipe = document.getElementById("meal-plan-recipe");
+const mealPlanFormTitle = document.getElementById("meal-plan-form-title");
+const saveMealPlanButton = document.getElementById("save-meal-plan");
+const cancelMealEditButton = document.getElementById("cancel-meal-edit");
+
+let mealPlans = [];
+let editingMealPlanId = null;
+let mealWeekStart = getMonday(new Date());
+
+function formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(dateString) {
+    const [year, month, day] = dateString.split("-").map(Number);
+    return new Date(year, month - 1, day);
+}
+
+function addDays(date, days) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+}
+
+function getMonday(date) {
+    const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = result.getDay();
+    result.setDate(result.getDate() - (day === 0 ? 6 : day - 1));
+    return result;
+}
+
+function displayDate(dateString, options = {}) {
+    return parseLocalDate(dateString).toLocaleDateString("en-IN", options);
+}
+
+function setMealPlannerStatus(message, isError = false) {
+    mealPlannerStatus.textContent = message;
+    mealPlannerStatus.classList.toggle("is-error", isError);
+}
+
+function populateMealPlanRecipeOptions() {
+    const previousValue = mealPlanRecipe.value;
+
+    mealPlanRecipe.innerHTML = '<option value="">Select a recipe</option>';
+
+    recipes.forEach(recipe => {
+        const option = document.createElement("option");
+        option.value = recipe.id;
+        option.textContent = recipe.name;
+        mealPlanRecipe.appendChild(option);
+    });
+
+    if (recipes.some(recipe => String(recipe.id) === previousValue)) {
+        mealPlanRecipe.value = previousValue;
+    }
+
+    if (recipes.length === 0) {
+        mealPlanRecipe.innerHTML =
+            '<option value="">No recipes available</option>';
+    }
+}
+
+function getRecipeName(plan) {
+    return plan.recipe?.name || "Unnamed recipe";
+}
+
+function getMealTypeLabel(mealType) {
+    const labels = {
+        BREAKFAST: "Breakfast",
+        LUNCH: "Lunch",
+        DINNER: "Dinner",
+        SNACK: "Snack"
+    };
+
+    return labels[mealType] || mealType;
+}
+
+function renderMealCalendar() {
+    const weekEnd = addDays(mealWeekStart, 6);
+    const startDate = formatLocalDate(mealWeekStart);
+    const endDate = formatLocalDate(weekEnd);
+
+    mealWeekLabel.textContent =
+        `${displayDate(startDate, { day: "numeric", month: "short" })}` +
+        ` – ${displayDate(endDate, {
+            day: "numeric",
+            month: "short",
+            year: "numeric"
+        })}`;
+
+    const mealTypes = ["BREAKFAST", "LUNCH", "DINNER", "SNACK"];
+    const days = Array.from({ length: 7 }, (_, index) =>
+        addDays(mealWeekStart, index)
+    );
+
+    mealCalendar.innerHTML = days.map(day => {
+        const dateString = formatLocalDate(day);
+        const dayPlans = mealPlans.filter(
+            plan => plan.plannedDate === dateString
+        );
+
+        const mealSections = mealTypes.map(mealType => {
+            const matchingPlans = dayPlans.filter(
+                plan => plan.mealType === mealType
+            );
+
+            const planCards = matchingPlans.map(plan => `
+                <article class="meal-plan-card">
+                    <p class="meal-plan-recipe-name">
+                        ${escapeHtml(getRecipeName(plan))}
+                    </p>
+                    <div class="meal-plan-card-actions">
+                        <button type="button"
+                                class="meal-edit-button"
+                                data-meal-action="edit"
+                                data-plan-id="${plan.id}">
+                            Edit
+                        </button>
+                        <button type="button"
+                                class="meal-delete-button"
+                                data-meal-action="delete"
+                                data-plan-id="${plan.id}">
+                            Remove
+                        </button>
+                    </div>
+                </article>
+            `).join("");
+
+            return `
+                <div class="meal-slot">
+                    <h4>${getMealTypeLabel(mealType)}</h4>
+                    ${planCards || '<p class="meal-slot-empty">No meals planned</p>'}
+                    <button type="button"
+                            class="meal-add-slot-button"
+                            data-meal-action="add"
+                            data-date="${dateString}"
+                            data-meal-type="${mealType}">
+                        + Add meal
+                    </button>
+                </div>
+            `;
+        }).join("");
+
+        return `
+            <section class="meal-day-column">
+                <header class="meal-day-header">
+                    <span>${day.toLocaleDateString("en-IN", {
+            weekday: "short"
+        })}</span>
+                    <strong>${day.getDate()}</strong>
+                </header>
+                ${mealSections}
+            </section>
+        `;
+    }).join("");
+}
+
+async function loadMealPlans() {
+    const startDate = formatLocalDate(mealWeekStart);
+    const endDate = formatLocalDate(addDays(mealWeekStart, 6));
+
+    setMealPlannerStatus("Loading meal plans...");
+
+    try {
+        const response = await fetch(
+            `${MEAL_PLAN_API_URL}?startDate=${startDate}&endDate=${endDate}`
+        );
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        const data = await response.json();
+        mealPlans = Array.isArray(data) ? data : [];
+        renderMealCalendar();
+        setMealPlannerStatus("");
+    } catch (error) {
+        mealPlans = [];
+        renderMealCalendar();
+        setMealPlannerStatus(
+            error.message || "Could not load meal plans.",
+            true
+        );
+    }
+}
+
+function resetMealPlanForm() {
+    editingMealPlanId = null;
+    mealPlanForm.reset();
+    mealPlanDate.value = formatLocalDate(new Date());
+    mealPlanFormTitle.textContent = "Add a meal";
+    saveMealPlanButton.textContent = "Add to plan";
+    cancelMealEditButton.hidden = true;
+}
+
+function openMealPlanForm(dateString, mealType = "BREAKFAST") {
+    mealPlanDate.value = dateString;
+    mealPlanType.value = mealType;
+    document.getElementById("meal-plan-form-panel").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+    mealPlanRecipe.focus();
+}
+
+mealPlanForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const recipeId = Number(mealPlanRecipe.value);
+
+    if (!recipeId || !mealPlanDate.value || !mealPlanType.value) {
+        setMealPlannerStatus("Select a recipe, date, and meal type.", true);
+        return;
+    }
+
+    const payload = {
+        recipe: { id: recipeId },
+        plannedDate: mealPlanDate.value,
+        mealType: mealPlanType.value
+    };
+
+    const isEditing = editingMealPlanId !== null;
+    const url = isEditing
+        ? `${MEAL_PLAN_API_URL}/${editingMealPlanId}`
+        : MEAL_PLAN_API_URL;
+
+    try {
+        saveMealPlanButton.disabled = true;
+        setMealPlannerStatus(isEditing ? "Updating meal..." : "Adding meal...");
+
+        const response = await fetch(url, {
+            method: isEditing ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        const savedDate = mealPlanDate.value;
+        resetMealPlanForm();
+
+        const savedDateObject = parseLocalDate(savedDate);
+        mealWeekStart = getMonday(savedDateObject);
+
+        await loadMealPlans();
+        setMealPlannerStatus(
+            isEditing ? "Meal plan updated." : "Meal added to your plan."
+        );
+    } catch (error) {
+        setMealPlannerStatus(
+            error.message || "Could not save the meal plan.",
+            true
+        );
+    } finally {
+        saveMealPlanButton.disabled = false;
+    }
+});
+
+mealCalendar.addEventListener("click", async event => {
+    const button = event.target.closest("button[data-meal-action]");
+
+    if (!button) {
+        return;
+    }
+
+    const action = button.dataset.mealAction;
+
+    if (action === "add") {
+        resetMealPlanForm();
+        openMealPlanForm(button.dataset.date, button.dataset.mealType);
+        return;
+    }
+
+    const planId = Number(button.dataset.planId);
+    const plan = mealPlans.find(item => item.id === planId);
+
+    if (!plan) {
+        setMealPlannerStatus("This meal plan could not be found.", true);
+        return;
+    }
+
+    if (action === "edit") {
+        editingMealPlanId = plan.id;
+        mealPlanDate.value = plan.plannedDate;
+        mealPlanType.value = plan.mealType;
+        mealPlanRecipe.value = String(plan.recipe?.id ?? "");
+        mealPlanFormTitle.textContent = "Edit planned meal";
+        saveMealPlanButton.textContent = "Save changes";
+        cancelMealEditButton.hidden = false;
+
+        document.getElementById("meal-plan-form-panel").scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+        return;
+    }
+
+    if (action === "delete") {
+        const confirmed = window.confirm(
+            `Remove "${getRecipeName(plan)}" from your meal plan?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            button.disabled = true;
+            setMealPlannerStatus("Removing meal...");
+
+            const response = await fetch(
+                `${MEAL_PLAN_API_URL}/${plan.id}`,
+                { method: "DELETE" }
+            );
+
+            if (!response.ok) {
+                throw new Error(await readError(response));
+            }
+
+            await loadMealPlans();
+            setMealPlannerStatus("Meal removed from your plan.");
+        } catch (error) {
+            setMealPlannerStatus(
+                error.message || "Could not remove the meal.",
+                true
+            );
+        }
+    }
+});
+
+document.getElementById("previous-week").addEventListener("click", () => {
+    mealWeekStart = addDays(mealWeekStart, -7);
+    loadMealPlans();
+});
+
+document.getElementById("next-week").addEventListener("click", () => {
+    mealWeekStart = addDays(mealWeekStart, 7);
+    loadMealPlans();
+});
+
+document.getElementById("current-week").addEventListener("click", () => {
+    mealWeekStart = getMonday(new Date());
+    loadMealPlans();
+});
+
+cancelMealEditButton.addEventListener("click", () => {
+    resetMealPlanForm();
+    setMealPlannerStatus("");
+});
+
+mealPlanDate.value = formatLocalDate(new Date());
+populateMealPlanRecipeOptions();
+loadMealPlans();
