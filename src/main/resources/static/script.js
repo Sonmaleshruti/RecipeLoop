@@ -31,8 +31,8 @@ detailOverlay.innerHTML = `
     <article class="recipe-detail-modal">
         <header class="recipe-detail-header">
             <button type="button" class="recipe-detail-close"
-                id="recipe-detail-close" aria-label="Close recipe details">×</button>
-            <div class="recipe-detail-emoji" id="detail-emoji" aria-hidden="true">🍲</div>
+                id="recipe-detail-close" aria-label="Close recipe details">&times;</button>
+            <div class="recipe-detail-emoji" id="detail-emoji" aria-hidden="true">&#129382;</div>
             <h2 class="recipe-detail-title" id="recipe-detail-title"></h2>
             <p class="recipe-detail-description" id="detail-description"></p>
             <div class="recipe-detail-meta" id="detail-meta"></div>
@@ -58,7 +58,7 @@ detailOverlay.innerHTML = `
 
 document.body.appendChild(detailOverlay);
 
-const foodEmojis = ["🥗", "🍝", "🥑", "🍲", "🥞", "🍜", "🥙", "🍛"];
+const foodEmojis = ["\uD83E\uDD57", "\uD83C\uDF72", "\uD83E\uDD51", "\uD83E\uDEB2", "\uD83E\uDD5E", "\uD83E\uDD6C", "\uD83E\uDD59", "\uD83C\uDF7D\uFE0F"];
 
 function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -174,8 +174,8 @@ function renderRecipes() {
                 <h3>${escapeHtml(recipe.name)}</h3>
                 <p class="recipe-description">${escapeHtml(recipe.description)}</p>
                 <div class="recipe-meta">
-                    <span>⏱ ${escapeHtml(recipe.prepTimeMinutes)} min</span>
-                    <span>🍽 ${escapeHtml(recipe.servings)} servings</span>
+                    <span>&#9201; ${escapeHtml(recipe.prepTimeMinutes)} min</span>
+                    <span>&#127869; ${escapeHtml(recipe.servings)} servings</span>
                 </div>
                 <div class="recipe-ingredients">
                     <h4>Ingredients</h4>
@@ -267,8 +267,8 @@ function openRecipeDetails(recipe) {
         recipe.description ?? "";
 
     document.getElementById("detail-meta").innerHTML = `
-        <span>⏱ ${escapeHtml(recipe.prepTimeMinutes)} minutes</span>
-        <span>🍽 ${escapeHtml(recipe.servings)} servings</span>
+        <span>&#9201; ${escapeHtml(recipe.prepTimeMinutes)} minutes</span>
+        <span>&#127869; ${escapeHtml(recipe.servings)} servings</span>
     `;
 
     const ingredientsList = document.getElementById("detail-ingredients");
@@ -907,16 +907,19 @@ mealCalendar.addEventListener("click", async event => {
 document.getElementById("previous-week").addEventListener("click", () => {
     mealWeekStart = addDays(mealWeekStart, -7);
     loadMealPlans();
+    loadShoppingList();
 });
 
 document.getElementById("next-week").addEventListener("click", () => {
     mealWeekStart = addDays(mealWeekStart, 7);
     loadMealPlans();
+    loadShoppingList();
 });
 
 document.getElementById("current-week").addEventListener("click", () => {
     mealWeekStart = getMonday(new Date());
     loadMealPlans();
+    loadShoppingList();
 });
 
 cancelMealEditButton.addEventListener("click", () => {
@@ -927,3 +930,226 @@ cancelMealEditButton.addEventListener("click", () => {
 mealPlanDate.value = formatLocalDate(new Date());
 populateMealPlanRecipeOptions();
 loadMealPlans();
+
+// ==================== SHOPPING LIST ====================
+
+const SHOPPING_LIST_API_URL = "/api/shopping-lists";
+const SHOPPING_ITEM_API_URL = "/api/shopping-list-items";
+
+const shoppingWeekLabel = document.getElementById("shopping-week-label");
+const shoppingListStatus = document.getElementById("shopping-list-status");
+const shoppingListItems = document.getElementById("shopping-list-items");
+const shoppingListCount = document.getElementById("shopping-list-count");
+const shoppingListProgress = document.getElementById("shopping-list-progress");
+const generateShoppingListButton =
+    document.getElementById("generate-shopping-list");
+
+let shoppingListData = null;
+let shoppingListRequestVersion = 0;
+
+function setShoppingListStatus(message, isError = false) {
+    shoppingListStatus.textContent = message;
+    shoppingListStatus.classList.toggle("is-error", isError);
+}
+
+function updateShoppingWeekLabel() {
+    const startDate = formatLocalDate(mealWeekStart);
+    const endDate = formatLocalDate(addDays(mealWeekStart, 6));
+
+    shoppingWeekLabel.textContent =
+        `${displayDate(startDate, { day: "numeric", month: "short" })}` +
+        ` – ${displayDate(endDate, {
+            day: "numeric",
+            month: "short",
+            year: "numeric"
+        })}`;
+}
+
+function renderShoppingList() {
+    const items = shoppingListData?.items ?? [];
+    const purchasedCount = items.filter(item => item.purchased).length;
+
+    shoppingListCount.textContent =
+        `${items.length} ${items.length === 1 ? "item" : "items"}`;
+    shoppingListProgress.textContent =
+        `${purchasedCount} purchased · ${items.length - purchasedCount} remaining`;
+
+    if (items.length === 0) {
+        shoppingListItems.innerHTML = `
+            <div class="shopping-list-empty">
+                <h3>Your list is empty</h3>
+                <p>Add meals to this week, then generate your shopping list.</p>
+            </div>
+        `;
+        return;
+    }
+
+    shoppingListItems.innerHTML = items.map(item => `
+        <label class="shopping-list-item ${item.purchased ? "is-purchased" : ""}">
+            <input
+                type="checkbox"
+                data-shopping-item-id="${item.id}"
+                ${item.purchased ? "checked" : ""}
+                aria-label="Mark ${escapeHtml(item.displayText)} as purchased">
+            <span class="shopping-item-text">${escapeHtml(item.displayText)}</span>
+            <span class="shopping-item-state">
+                ${item.purchased ? "Purchased" : "To buy"}
+            </span>
+        </label>
+    `).join("");
+}
+
+async function loadShoppingList() {
+    const requestVersion = ++shoppingListRequestVersion;
+    const weekStartDate = formatLocalDate(mealWeekStart);
+
+    updateShoppingWeekLabel();
+    shoppingListItems.innerHTML =
+        '<p class="shopping-list-empty">Loading shopping list...</p>';
+    setShoppingListStatus("");
+
+    try {
+        const response = await fetch(
+            `${SHOPPING_LIST_API_URL}?weekStartDate=${weekStartDate}`
+        );
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        const data = await response.json();
+
+        if (requestVersion !== shoppingListRequestVersion) {
+            return;
+        }
+
+        shoppingListData = data;
+        renderShoppingList();
+    } catch (error) {
+        if (requestVersion !== shoppingListRequestVersion) {
+            return;
+        }
+
+        shoppingListData = null;
+        shoppingListItems.innerHTML = `
+            <p class="shopping-list-empty">
+                Could not load the shopping list. Check that RecipeLoop is running.
+            </p>
+        `;
+        shoppingListCount.textContent = "— items";
+        shoppingListProgress.textContent = "— purchased";
+        setShoppingListStatus(
+            error.message || "Could not load the shopping list.",
+            true
+        );
+    }
+}
+
+generateShoppingListButton.addEventListener("click", async () => {
+    const weekStartDate = formatLocalDate(mealWeekStart);
+
+    generateShoppingListButton.disabled = true;
+    setShoppingListStatus("Generating shopping list...");
+
+    try {
+        const response = await fetch(
+            `${SHOPPING_LIST_API_URL}/generate?weekStartDate=${weekStartDate}`,
+            { method: "POST" }
+        );
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        shoppingListData = await response.json();
+        renderShoppingList();
+        setShoppingListStatus("Shopping list generated successfully.");
+    } catch (error) {
+        setShoppingListStatus(
+            error.message || "Could not generate the shopping list.",
+            true
+        );
+    } finally {
+        generateShoppingListButton.disabled = false;
+    }
+});
+
+shoppingListItems.addEventListener("change", async event => {
+    const checkbox = event.target.closest(
+        'input[data-shopping-item-id]'
+    );
+
+    if (!checkbox) {
+        return;
+    }
+
+    const itemId = Number(checkbox.dataset.shoppingItemId);
+    const item = shoppingListData?.items?.find(
+        listItem => listItem.id === itemId
+    );
+
+    if (!item) {
+        return;
+    }
+
+    const previousValue = item.purchased;
+    const requestedValue = checkbox.checked;
+
+    checkbox.disabled = true;
+    item.purchased = requestedValue;
+    renderShoppingList();
+
+    const updatedCheckbox = shoppingListItems.querySelector(
+        `input[data-shopping-item-id="${itemId}"]`
+    );
+    if (updatedCheckbox) {
+        updatedCheckbox.disabled = true;
+    }
+
+    try {
+        const response = await fetch(
+            `${SHOPPING_ITEM_API_URL}/${itemId}/purchased`,
+            {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ purchased: requestedValue })
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        const updatedItem = await response.json();
+        const currentItem = shoppingListData?.items?.find(
+            listItem => listItem.id === itemId
+        );
+
+        if (currentItem) {
+            currentItem.purchased = updatedItem.purchased;
+        }
+
+        renderShoppingList();
+        setShoppingListStatus(
+            updatedItem.purchased
+                ? "Item marked as purchased."
+                : "Item marked as not purchased."
+        );
+    } catch (error) {
+        const currentItem = shoppingListData?.items?.find(
+            listItem => listItem.id === itemId
+        );
+
+        if (currentItem) {
+            currentItem.purchased = previousValue;
+        }
+
+        renderShoppingList();
+        setShoppingListStatus(
+            error.message || "Could not update the purchased status.",
+            true
+        );
+    }
+});
+
+loadShoppingList();

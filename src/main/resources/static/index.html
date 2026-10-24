@@ -289,6 +289,46 @@
         </div>
     </section>
 
+
+    <section class="shopping-list-section" id="shopping-list-section">
+        <div class="shopping-list-container">
+            <div class="section-heading">
+                <div>
+                    <p class="section-eyebrow">READY, SET, SHOP</p>
+                    <h2>Weekly Shopping List</h2>
+                    <p>Build your grocery list from the meals planned for this week.</p>
+                </div>
+            </div>
+
+            <div class="shopping-list-toolbar">
+                <div class="shopping-list-week">
+                    <span>Planning week</span>
+                    <strong id="shopping-week-label">This week</strong>
+                </div>
+                <button type="button"
+                        id="generate-shopping-list"
+                        class="meal-primary-button">
+                    Generate / Refresh List
+                </button>
+            </div>
+
+            <p id="shopping-list-status"
+               class="shopping-list-status"
+               role="status"
+               aria-live="polite"></p>
+
+            <div class="shopping-list-summary">
+                <span id="shopping-list-count">0 items</span>
+                <span id="shopping-list-progress">0 purchased</span>
+            </div>
+
+            <div id="shopping-list-items" class="shopping-list-items">
+                <p class="shopping-list-empty">
+                    Loading your shopping list...
+                </p>
+            </div>
+        </div>
+    </section>
 </main>
 
 <footer class="site-footer">
