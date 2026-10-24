@@ -47,6 +47,18 @@ detailOverlay.innerHTML = `
                 <div class="recipe-detail-instructions" id="detail-instructions"></div>
             </section>
         </div>
+
+        <section class="recipe-detail-section recipe-recommendations-section">
+            <h3>Similar Recipes</h3>
+            <p class="recommendations-description">
+                Recipes with ingredients and descriptions similar to this one.
+            </p>
+            <div id="recipe-recommendations" class="recipe-recommendations"
+                 aria-live="polite">
+                <p class="recommendations-message">Loading recommendations...</p>
+            </div>
+        </section>
+
         <div class="recipe-detail-actions">
             <button type="button" class="button button-secondary"
                 id="detail-edit-button">Edit Recipe</button>
@@ -296,6 +308,107 @@ function openRecipeDetails(recipe) {
     detailOverlay.hidden = false;
     document.body.classList.add("recipe-detail-open");
     document.getElementById("recipe-detail-close").focus();
+    loadRecommendations(recipe.id);
+}
+
+async function loadRecommendations(recipeId) {
+    const container = document.getElementById("recipe-recommendations");
+
+    container.replaceChildren();
+
+    const loadingMessage = document.createElement("p");
+    loadingMessage.className = "recommendations-message";
+    loadingMessage.textContent = "Finding similar recipes...";
+    container.appendChild(loadingMessage);
+
+    try {
+        const response = await fetch(
+            `${API_URL}/${encodeURIComponent(recipeId)}/recommendations?limit=4`
+        );
+
+        if (!response.ok) {
+            throw new Error(await readError(response));
+        }
+
+        const recommendations = await response.json();
+
+        if (selectedRecipeId !== String(recipeId)) {
+            return;
+        }
+
+        container.replaceChildren();
+
+        if (!Array.isArray(recommendations) || recommendations.length === 0) {
+            const message = document.createElement("p");
+            message.className = "recommendations-message";
+            message.textContent =
+                "No similar recipes yet. Add more recipes to your collection.";
+            container.appendChild(message);
+            return;
+        }
+
+        recommendations.forEach(recipe => {
+            const card = document.createElement("button");
+            card.type = "button";
+            card.className = "recommendation-card";
+
+            const name = document.createElement("span");
+            name.className = "recommendation-card-title";
+            name.textContent = recipe.name ?? "Untitled recipe";
+
+            const description = document.createElement("span");
+            description.className = "recommendation-card-description";
+            description.textContent = recipe.description ?? "";
+
+            const score = Number(recipe.similarityScore);
+            const similarity = document.createElement("span");
+            similarity.className = "recommendation-card-score";
+            similarity.textContent = Number.isFinite(score)
+                ? `${(Math.max(0, Math.min(1, score)) * 100).toFixed(1)}% text similarity`
+                : "Similar recipe";
+
+            card.append(name, description, similarity);
+
+            card.addEventListener("click", async () => {
+                try {
+                    const recipeResponse = await fetch(
+                        `${API_URL}/${encodeURIComponent(recipe.id)}`
+                    );
+
+                    if (!recipeResponse.ok) {
+                        throw new Error(await readError(recipeResponse));
+                    }
+
+                    const fullRecipe = await recipeResponse.json();
+                    openRecipeDetails(fullRecipe);
+                } catch (error) {
+                    const message = document.createElement("p");
+                    message.className = "recommendations-message";
+                    message.textContent =
+                        error.message || "Could not open this recipe.";
+
+                    if (selectedRecipeId === String(recipeId)) {
+                        container.replaceChildren(message);
+                    }
+                }
+            });
+
+            container.appendChild(card);
+        });
+    } catch (error) {
+        if (selectedRecipeId !== String(recipeId)) {
+            return;
+        }
+
+        container.replaceChildren();
+
+        const message = document.createElement("p");
+        message.className = "recommendations-message";
+        message.textContent = "Could not load recommendations. Please try again.";
+        container.appendChild(message);
+
+        console.error("Recommendation loading failed:", error);
+    }
 }
 
 function closeRecipeDetails() {
