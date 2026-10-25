@@ -4,16 +4,8 @@ package com.recipeloop.recipeloop;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -31,22 +23,26 @@ public class MealPlanController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public MealPlan createMealPlan(
+            Authentication authentication,
             @Valid @RequestBody MealPlan mealPlan) {
-        return mealPlanService.createMealPlan(mealPlan);
+        return mealPlanService.createMealPlan(
+                authentication.getName(), mealPlan);
     }
 
     @GetMapping
     public List<MealPlan> getMealPlans(
+            Authentication authentication,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate startDate,
-
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate endDate) {
 
+        String email = authentication.getName();
+
         if (startDate == null && endDate == null) {
-            return mealPlanService.getAllMealPlans();
+            return mealPlanService.getAllMealPlans(email);
         }
 
         if (startDate == null || endDate == null) {
@@ -54,24 +50,33 @@ public class MealPlanController {
                     "Both startDate and endDate must be provided");
         }
 
-        return mealPlanService.getMealPlansBetween(startDate, endDate);
+        return mealPlanService.getMealPlansBetween(
+                email, startDate, endDate);
     }
 
     @GetMapping("/{id}")
-    public MealPlan getMealPlanById(@PathVariable Long id) {
-        return mealPlanService.getMealPlanById(id);
+    public MealPlan getMealPlanById(
+            Authentication authentication,
+            @PathVariable Long id) {
+        return mealPlanService.getMealPlanById(
+                authentication.getName(), id);
     }
 
     @PutMapping("/{id}")
     public MealPlan updateMealPlan(
+            Authentication authentication,
             @PathVariable Long id,
             @Valid @RequestBody MealPlan mealPlan) {
-        return mealPlanService.updateMealPlan(id, mealPlan);
+        return mealPlanService.updateMealPlan(
+                authentication.getName(), id, mealPlan);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteMealPlan(@PathVariable Long id) {
-        mealPlanService.deleteMealPlan(id);
+    public void deleteMealPlan(
+            Authentication authentication,
+            @PathVariable Long id) {
+        mealPlanService.deleteMealPlan(
+                authentication.getName(), id);
     }
 }

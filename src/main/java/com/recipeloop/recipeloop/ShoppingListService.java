@@ -30,38 +30,44 @@ public class ShoppingListService {
     private final ShoppingListRepository shoppingListRepository;
     private final ShoppingListItemRepository shoppingListItemRepository;
     private final MealPlanRepository mealPlanRepository;
+    private final AuthService authService;
 
     public ShoppingListService(
             ShoppingListRepository shoppingListRepository,
             ShoppingListItemRepository shoppingListItemRepository,
-            MealPlanRepository mealPlanRepository) {
+            MealPlanRepository mealPlanRepository,
+            AuthService authService) {
         this.shoppingListRepository = shoppingListRepository;
         this.shoppingListItemRepository = shoppingListItemRepository;
         this.mealPlanRepository = mealPlanRepository;
+        this.authService = authService;
     }
 
     @Transactional(readOnly = true)
-    public ShoppingList getByWeekStartDate(LocalDate weekStartDate) {
+    public ShoppingList getByWeekStartDate(
+            String email, LocalDate weekStartDate) {
         validateWeekStart(weekStartDate);
-
+        AppUser user = authService.findByEmail(email);
         return shoppingListRepository
-                .findByWeekStartDate(weekStartDate)
+                .findByUser_IdAndWeekStartDate(user.getId(), weekStartDate)
                 .orElseGet(() -> {
                     ShoppingList emptyList = new ShoppingList();
+                    emptyList.setUser(user);
                     emptyList.setWeekStartDate(weekStartDate);
                     return emptyList;
                 });
     }
 
-    public ShoppingList generate(LocalDate weekStartDate) {
+    public ShoppingList generate(
+            String email, LocalDate weekStartDate) {
         validateWeekStart(weekStartDate);
-
+        AppUser user = authService.findByEmail(email);
         LocalDate weekEndDate = weekStartDate.plusDays(6);
 
         List<MealPlan> mealPlans =
-                mealPlanRepository.findByPlannedDateBetweenOrderByPlannedDateAsc(
-                        weekStartDate, weekEndDate
-                );
+                mealPlanRepository
+                        .findByUser_IdAndPlannedDateBetweenOrderByPlannedDateAsc(
+                                user.getId(), weekStartDate, weekEndDate);
 
         Map<String, IngredientEntry> generatedItems =
                 new LinkedHashMap<>();
@@ -74,7 +80,7 @@ public class ShoppingListService {
             }
 
             String[] ingredients =
-                    recipe.getIngredients().split("\\r?\\n|,");
+                    recipe.getIngredients().split("\\r?\\n|[,;]");
 
             for (String ingredient : ingredients) {
                 String text = ingredient.trim();
@@ -99,9 +105,10 @@ public class ShoppingListService {
         }
 
         ShoppingList shoppingList = shoppingListRepository
-                .findByWeekStartDate(weekStartDate)
+                .findByUser_IdAndWeekStartDate(user.getId(), weekStartDate)
                 .orElseGet(() -> {
                     ShoppingList newList = new ShoppingList();
+                    newList.setUser(user);
                     newList.setWeekStartDate(weekStartDate);
                     return newList;
                 });
@@ -137,10 +144,12 @@ public class ShoppingListService {
     }
 
     public ShoppingListItem updatePurchased(
-            Long itemId, boolean purchased) {
+            String email, Long itemId, boolean purchased) {
+
+        AppUser user = authService.findByEmail(email);
 
         ShoppingListItem item = shoppingListItemRepository
-                .findById(itemId)
+                .findByIdAndShoppingList_User_Id(itemId, user.getId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Shopping-list item not found: " + itemId
                 ));

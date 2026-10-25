@@ -1,6 +1,7 @@
 
 package com.recipeloop.recipeloop;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,6 +24,11 @@ public class MealPlan {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "user_id", nullable = true)
+    private AppUser user;
 
     @NotNull(message = "Recipe is required")
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
@@ -47,6 +53,14 @@ public class MealPlan {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public AppUser getUser() {
+        return user;
+    }
+
+    public void setUser(AppUser user) {
+        this.user = user;
     }
 
     public Recipe getRecipe() {

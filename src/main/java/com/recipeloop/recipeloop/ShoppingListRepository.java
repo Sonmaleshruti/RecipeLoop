@@ -1,3 +1,4 @@
+
 package com.recipeloop.recipeloop;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,5 +11,10 @@ import java.util.Optional;
 public interface ShoppingListRepository
         extends JpaRepository<ShoppingList, Long> {
 
-    Optional<ShoppingList> findByWeekStartDate(LocalDate weekStartDate);
+    Optional<ShoppingList> findByUser_IdAndWeekStartDate(
+            Long userId,
+            LocalDate weekStartDate
+    );
+
+    Optional<ShoppingList> findByIdAndUser_Id(Long id, Long userId);
 }

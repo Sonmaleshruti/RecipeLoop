@@ -23,11 +23,57 @@
         <a class="nav-link" href="#add-recipe">Share a recipe</a>
     </nav>
 
-    <a class="header-button" href="#add-recipe">+ Add Recipe</a>
+
+    <div class="header-auth" id="header-auth">
+        <span id="auth-user-status" aria-live="polite">Checking session...</span>
+        <button type="button" class="header-button" id="show-login">Log in</button>
+        <button type="button" class="header-button" id="show-register">Register</button>
+        <button type="button" class="header-button" id="logout-button" hidden>Log out</button>
+        <a class="header-button" href="#add-recipe">+ Add Recipe</a>
+    </div>
+
 </header>
 
 <main>
-    <section class="hero" id="home">
+
+    <section id="auth-section" class="auth-section" hidden>
+        <div class="auth-panel">
+            <h2 id="auth-heading">Log in to RecipeLoop</h2>
+            <p id="auth-description">Access your personal meal planner and shopping list.</p>
+
+            <form id="auth-form">
+                <div class="form-group" id="auth-name-group" hidden>
+                    <label for="auth-name">Name</label>
+                    <input type="text" id="auth-name" name="name"
+                           maxlength="100" autocomplete="name">
+                </div>
+
+                <div class="form-group">
+                    <label for="auth-email">Email</label>
+                    <input type="email" id="auth-email" name="email"
+                           autocomplete="email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" name="password"
+                           minlength="8" autocomplete="current-password"
+                           required>
+                </div>
+
+                <button type="submit" class="primary-button" id="auth-submit">
+                    Log in
+                </button>
+                <button type="button" class="cancel-button" id="auth-cancel">
+                    Cancel
+                </button>
+                <p id="auth-feedback" class="form-feedback"
+                   role="status" aria-live="polite"></p>
+            </form>
+        </div>
+    </section>
+
+<section class="hero" id="home">
         <div class="hero-content">
             <span class="eyebrow">YOUR NEXT MEAL STARTS HERE</span>
             <h1>Good food.<br><span>Great moments.</span></h1>

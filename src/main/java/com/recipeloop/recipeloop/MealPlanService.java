@@ -13,41 +13,49 @@ public class MealPlanService {
 
     private final MealPlanRepository mealPlanRepository;
     private final RecipeRepository recipeRepository;
+    private final AuthService authService;
 
     public MealPlanService(
             MealPlanRepository mealPlanRepository,
-            RecipeRepository recipeRepository) {
+            RecipeRepository recipeRepository,
+            AuthService authService) {
         this.mealPlanRepository = mealPlanRepository;
         this.recipeRepository = recipeRepository;
+        this.authService = authService;
     }
 
-    public MealPlan createMealPlan(MealPlan mealPlan) {
-        Long recipeId = getRecipeId(mealPlan);
+    public MealPlan createMealPlan(String email, MealPlan mealPlan) {
+        AppUser user = authService.findByEmail(email);
 
+        Long recipeId = getRecipeId(mealPlan);
         Recipe recipe = recipeRepository.findById(recipeId)
                 .orElseThrow(() -> new RecipeNotFoundException(recipeId));
 
+        mealPlan.setId(null);
+        mealPlan.setUser(user);
         mealPlan.setRecipe(recipe);
 
         return mealPlanRepository.save(mealPlan);
     }
 
     @Transactional(readOnly = true)
-    public List<MealPlan> getAllMealPlans() {
-        return mealPlanRepository.findAll();
+    public List<MealPlan> getAllMealPlans(String email) {
+        AppUser user = authService.findByEmail(email);
+        return mealPlanRepository.findByUser_IdOrderByPlannedDateAsc(
+                user.getId());
     }
 
     @Transactional(readOnly = true)
-    public MealPlan getMealPlanById(Long id) {
-        return mealPlanRepository.findById(id)
+    public MealPlan getMealPlanById(String email, Long id) {
+        AppUser user = authService.findByEmail(email);
+
+        return mealPlanRepository.findByIdAndUser_Id(id, user.getId())
                 .orElseThrow(() -> new MealPlanNotFoundException(id));
     }
 
     @Transactional(readOnly = true)
     public List<MealPlan> getMealPlansBetween(
-            LocalDate startDate,
-            LocalDate endDate) {
-
+            String email, LocalDate startDate, LocalDate endDate) {
         if (startDate == null || endDate == null) {
             throw new IllegalArgumentException(
                     "Start date and end date are required");
@@ -58,16 +66,18 @@ public class MealPlanService {
                     "End date cannot be before start date");
         }
 
+        AppUser user = authService.findByEmail(email);
+
         return mealPlanRepository
-                .findByPlannedDateBetweenOrderByPlannedDateAsc(
-                        startDate, endDate);
+                .findByUser_IdAndPlannedDateBetweenOrderByPlannedDateAsc(
+                        user.getId(), startDate, endDate);
     }
 
-    public MealPlan updateMealPlan(Long id, MealPlan updatedMealPlan) {
-        MealPlan existingMealPlan = getMealPlanById(id);
+    public MealPlan updateMealPlan(
+            String email, Long id, MealPlan updatedMealPlan) {
+        MealPlan existingMealPlan = getMealPlanById(email, id);
 
         Long recipeId = getRecipeId(updatedMealPlan);
-
         Recipe recipe = recipeRepository.findById(recipeId)
                 .orElseThrow(() -> new RecipeNotFoundException(recipeId));
 
@@ -78,8 +88,8 @@ public class MealPlanService {
         return mealPlanRepository.save(existingMealPlan);
     }
 
-    public void deleteMealPlan(Long id) {
-        MealPlan mealPlan = getMealPlanById(id);
+    public void deleteMealPlan(String email, Long id) {
+        MealPlan mealPlan = getMealPlanById(email, id);
         mealPlanRepository.delete(mealPlan);
     }
 

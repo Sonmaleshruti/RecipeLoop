@@ -2,6 +2,7 @@
 package com.recipeloop.recipeloop;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -18,30 +19,33 @@ public class ShoppingListController {
 
     @GetMapping("/api/shopping-lists")
     public ShoppingList getShoppingList(
+            Authentication authentication,
             @RequestParam LocalDate weekStartDate) {
-        return shoppingListService.getByWeekStartDate(weekStartDate);
+        return shoppingListService.getByWeekStartDate(
+                authentication.getName(), weekStartDate);
     }
 
     @PostMapping("/api/shopping-lists/generate")
     public ShoppingList generateShoppingList(
+            Authentication authentication,
             @RequestParam LocalDate weekStartDate) {
-        return shoppingListService.generate(weekStartDate);
+        return shoppingListService.generate(
+                authentication.getName(), weekStartDate);
     }
 
     @PatchMapping("/api/shopping-list-items/{itemId}/purchased")
     public ShoppingListItem updatePurchased(
+            Authentication authentication,
             @PathVariable Long itemId,
             @RequestBody PurchasedRequest request) {
 
         if (request == null || request.purchased() == null) {
             throw new IllegalArgumentException(
-                    "The purchased field is required."
-            );
+                    "The purchased field is required.");
         }
 
         return shoppingListService.updatePurchased(
-                itemId, request.purchased()
-        );
+                authentication.getName(), itemId, request.purchased());
     }
 
     public record PurchasedRequest(Boolean purchased) {
